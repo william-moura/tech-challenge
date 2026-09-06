@@ -1,27 +1,35 @@
-FROM php:8.4-cli
+FROM php:8.4-fpm-alpine
 
-RUN apt-get update && apt-get install -y \
-    git \
+# Instalar dependências de sistema e extensões PHP necessárias para o Laravel
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
     curl \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libzip-dev \
-    libonig-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    pdo_pgsql \
+    pdo_mysql \
     zip \
     unzip \
-&& docker-php-ext-configure gd --with-freetype --with-jpeg \
-&& docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
-&& pecl install pcov \
-&& docker-php-ext-enable pcov \
-&& rm -rf /var/lib/apt/lists/*
+    git
 
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql gd bcmath
+
+# Instalar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# Copiar arquivos do projeto
 COPY . .
 
-RUN composer install --no-interaction --prefer-dist --no-progress
+# Instalar dependências sem dev
+RUN composer install --no-dev --optimize-autoloader
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Ajustar permissões de escrita para o Laravel
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+EXPOSE 80
+
+CMD ["php-fpm"]
