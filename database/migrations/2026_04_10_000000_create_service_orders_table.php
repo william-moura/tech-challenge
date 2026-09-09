@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('id')->default(DB::raw('(UUID())'))->primary();
             $table->uuid('customer_id');
             $table->uuid('vehicle_id');
-            $table->string('customer_document', 14);
+            // $table->string('customer_document', 14);
             $table->string('status', 40);
             $table->decimal('services_total', 10, 2)->default(0);
             $table->decimal('parts_total', 10, 2)->default(0);
@@ -26,11 +26,12 @@ return new class extends Migration
             $table->foreignId('created_user_id')->constrained('users');
             $table->foreignId('updated_user_id')->constrained('users');
             $table->timestamps();
+            $table->softDeletes();
 
             $table->foreign('customer_id')->references('id')->on('customers')->cascadeOnDelete();
             $table->foreign('vehicle_id')->references('id')->on('vehicles')->cascadeOnDelete();
             $table->index('status');
-            $table->index('customer_document');
+            // $table->index('customer_document');
         });
     }
 

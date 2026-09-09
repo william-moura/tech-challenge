@@ -1,97 +1,66 @@
+version: '3.8'
+
+networks:
+  techchallenge-net:
+    driver: bridge
+
 services:
-  app-php:
+  # 1. Banco de Dados Gerenciado Simulado (MySQL / PostgreSQL)
+  database:
+    image: mysql:8.0
+    container_name: tc-db-local
+    restart: always
+    environment:
+      # POSTGRES_DB: techchallenge
+      # POSTGRES_USER: dbadmin
+      # POSTGRES_PASSWORD: secretpassword
+      MYSQL_ROOT_PASSWORD: secretpassword
+      MYSQL_DATABASE: techchallenge
+      MYSQL_USER: dbadmin
+      MYSQL_PASSWORD: secretpassword
+    ports:
+      - "3308:3306"
+    networks:
+      - techchallenge-net
+
+  # 2. Aplicação Principal Laravel
+  app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: tc-app-laravel
+    restart: always
     ports:
-      - 8080:8000
-    working_dir: /var/www/html
-    user: 1000:1000
-    env_file:
-      - .env
-    volumes:
-      - .:/var/www/html
+      - "8000:80"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_HOST: database
+      DB_PORT: 3308
+      DB_DATABASE: techchallenge
+      DB_USERNAME: dbadmin
+      DB_PASSWORD: secretpassword
+      JWT_SECRET: sua_chave_secreta_super_segura
     depends_on:
-      - db
+      - database
     networks:
-      - app_network
-    command: "php artisan serve --host=0.0.0.0"
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/up"]
-      interval: 5s
-      timeout: 3s
-      retries: 15
-      start_period: 15s
+      - techchallenge-net
 
-  db:
-    image: mysql:8.0
+  # 3. Lambda Auth (Rodando como serviço HTTP local)
+  auth-lambda:
+    build:
+      context: ../tc-soat-auth-lambda # Caminho para a pasta da sua Lambda
+      dockerfile: Dockerfile.local # Dockerfile simplificado para rodar a Lambda como servidor Express local
+    container_name: tc-auth-lambda
     ports:
-      - 3306:3306
-    env_file:
-      - .env
+      - "3000:3000"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      # MYSQL_ALLOW_EMPTY_PASSWORD: yes
-      MYSQL_USER: ${DB_USERNAME}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - app_network
-
-  swagger-ui:
-    image: swaggerapi/swagger-ui
-    ports:
-      - 8082:8080
-    environment:
-      SWAGGER_JSON: /app/openapi.yaml
-    volumes:
-      - ./openapi.yaml:/app/openapi.yaml
-    networks:
-      - app_network
-
-  sonar:
-    image: sonarqube:latest
-    ports:
-      - 9000:9000
-    networks:
-      - app_network
-
-  sonar-scanner:
-    image: sonarsource/sonar-scanner-cli:latest
-    volumes:
-      - .:/var/www/html
-    working_dir: /var/www/html
-    environment:
-      SONAR_HOST_URL: http://sonar:9000
-      SONAR_TOKEN: ${SONAR_TOKEN}
+      DB_HOST: database
+      DB_USER: dbadmin
+      DB_PASSWORD: secretpassword
+      DB_NAME: techchallenge
+      JWT_SECRET: sua_chave_secreta_super_segura
     depends_on:
-      - sonar
+      - database
     networks:
-      - app_network
-
-  zap:
-    image: ghcr.io/zaproxy/zaproxy:stable
-    profiles: [zap]
-    depends_on:
-      app-php:
-        condition: service_healthy
-    volumes:
-      - ./openapi.yaml:/zap/wrk/openapi.yaml:ro
-      - ./zap/reports:/zap/wrk/reports
-      - ./zap/entrypoint.sh:/zap/wrk/entrypoint.sh:ro
-    networks:
-      - app_network
-    environment:
-      - ZAP_EMAIL
-      - ZAP_PASSWORD
-    entrypoint: ["bash", "/zap/wrk/entrypoint.sh"]
-
-volumes:
-  mysql_data:
-
-networks:
-  app_network:
-    driver: bridge
-
+      - techchallenge-net
