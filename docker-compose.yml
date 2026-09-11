@@ -40,7 +40,7 @@ services:
       DB_DATABASE: techchallenge
       DB_USERNAME: dbadmin
       DB_PASSWORD: secretpassword
-      JWT_SECRET: sua_chave_secreta_super_segura
+      JWT_SECRET: Iv42lYOWsLbs8NCYj9gLQfOBicN/VCIKgyb7ZrAsjD4=
     depends_on:
       - database
     networks:
@@ -60,8 +60,20 @@ services:
       DB_USER: dbadmin           # mesmo usuário definido no serviço 'database'
       DB_PASSWORD: secretpassword # mesma senha definida no serviço 'database'
       DB_NAME: techchallenge     # mesmo nome do banco
-      JWT_SECRET: sua_chave_secreta_super_segura
+      JWT_SECRET: Iv42lYOWsLbs8NCYj9gLQfOBicN/VCIKgyb7ZrAsjD4=
     depends_on:
       - database
+    networks:
+      - techchallenge-net
+  api-gateway:
+    image: nginx:alpine
+    container_name: tc-api-gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+      - auth-lambda
     networks:
       - techchallenge-net

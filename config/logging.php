@@ -97,11 +97,11 @@ return [
         'stderr' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
-            'handler' => StreamHandler::class,
+            'handler' => Monolog\Handler\StreamHandler::class,
             'handler_with' => [
                 'stream' => 'php://stderr',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter' => Monolog\Formatter\JsonFormatter::class,
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
