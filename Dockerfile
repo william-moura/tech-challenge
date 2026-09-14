@@ -1,27 +1,37 @@
-FROM php:8.4-cli
+FROM php:8.3-fpm
 
+# Instalar dependências do sistema
 RUN apt-get update && apt-get install -y \
     git \
-    curl \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libzip-dev \
-    libonig-dev \
-    zip \
     unzip \
-&& docker-php-ext-configure gd --with-freetype --with-jpeg \
-&& docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
-&& pecl install pcov \
-&& docker-php-ext-enable pcov \
-&& rm -rf /var/lib/apt/lists/*
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    curl \
+    nginx
 
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN docker-php-ext-install pdo_mysql mbstring bcmath gd
 
+# Copiar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+ENV COMPOSER_MEMORY_LIMIT=-1
 WORKDIR /var/www/html
 
+# 1. Copia dependências e instala sem rodar scripts do Artisan
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader --no-scripts
+
+# 2. Copia o código completo
 COPY . .
 
-RUN composer install --no-interaction --prefer-dist --no-progress
+# 3. Gera o autoloader final do Composer
+RUN composer dump-autoload --optimize
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Permissões das pastas do Laravel
+RUN chown -R www-data:www-data storage bootstrap/cache
+
+EXPOSE 80
+
+CMD ["sh", "-c", "php artisan config:cache && php artisan route:cache && php-fpm"]

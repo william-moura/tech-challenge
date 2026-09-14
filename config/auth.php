@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\Customer\Entities\Customer;
+use App\Infrastructure\Persistence\Eloquent\Models\CustomerModel;
 use App\Models\User;
 
 return [
@@ -46,6 +48,14 @@ return [
             'driver' => 'jwt',
             'provider' => 'users'
         ],
+        'users' => [
+            'driver' => 'jwt',
+            'provider' => 'users',
+        ],
+        'customers' => [
+            'driver' => 'jwt',
+            'provider' => 'customers',
+        ],
     ],
 
     /*
@@ -68,9 +78,12 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            'model' => User::class,
         ],
-
+        'customers' => [
+            'driver' => 'eloquent',
+            'model' => CustomerModel::class,
+        ],
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',

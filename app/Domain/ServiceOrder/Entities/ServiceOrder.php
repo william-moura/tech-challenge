@@ -45,7 +45,7 @@ class ServiceOrder
             vehicleId: $vehicleId,
             services: $services,
             items: $items,
-            status: self::STATUS_RECEBIDA,
+            status: self::STATUS_AGUARDANDO_APROVACAO,
             servicesTotal: $servicesTotal,
             itemsTotal: $itemsTotal,
             totalBudget: $servicesTotal + $itemsTotal,

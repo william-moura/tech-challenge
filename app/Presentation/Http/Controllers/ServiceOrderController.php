@@ -12,6 +12,7 @@ use App\Application\ServiceOrder\DTOs\UpdateServiceOrderDTO;
 use App\Application\ServiceOrder\DTOs\UpdateServiceOrderStatusDTO;
 use App\Application\ServiceOrder\UseCases\CreateServiceOrderUseCase;
 use App\Application\ServiceOrder\UseCases\DeleteServiceOrderUseCase;
+use App\Application\ServiceOrder\UseCases\ListServiceOrderByCustomerUseCase;
 use App\Application\ServiceOrder\UseCases\ListServiceOrderUseCase;
 use App\Application\ServiceOrder\UseCases\RemoveServiceOrderItemUseCase;
 use App\Application\ServiceOrder\UseCases\RemoveServiceOrderServiceUseCase;
@@ -56,7 +57,7 @@ class ServiceOrderController
             page: (int) $request->input('page', 1),
             perPage: (int) $request->input('perPage', 10)
         );
-
+        
         $serviceOrders = $useCase->execute($dto);
 
         return response()->json($serviceOrders);
@@ -172,5 +173,17 @@ class ServiceOrderController
             'quote_approved_at' => $serviceOrder->quoteApprovedAt,
             'approval_token' => $serviceOrder->approvalToken,
         ];
+    }
+    public function listServiceOrdersByCustomer(ListServiceOrderRequest $request, ListServiceOrderByCustomerUseCase $useCase)
+    {
+        $dto = new ListServiceOrderDTO(
+            page: (int) $request->input('page', 1),
+            perPage: (int) $request->input('perPage', 10),
+        );
+        $customerId = $request->user()->id;
+
+        $serviceOrders = $useCase->execute($dto, $customerId);
+
+        return response()->json($serviceOrders);
     }
 }
