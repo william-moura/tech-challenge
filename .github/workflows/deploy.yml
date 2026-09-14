@@ -4,6 +4,11 @@ on:
   push:
     branches: [ master ]
 
+# ADICIONE ESTE BLOCO DE PERMISSÕES
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -41,14 +46,5 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Atualizar ou aplicar os manifestos do App no K3s
             sudo k3s kubectl set image deployment/tc-soat-app-deployment tc-soat-app-container=ghcr.io/${{ github.repository }}:main --namespace=default || true
-            
-            # 2. Forçar atualização dos Pods
             sudo k3s kubectl rollout restart deployment/tc-soat-app-deployment || true
-            
-            # 3. Rodar as migrations do Laravel dentro do Pod
-            POD_NAME=$(sudo k3s kubectl get pods -l app=tc-soat-app -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
-            if [ -n "$POD_NAME" ]; then
-              sudo k3s kubectl exec $POD_NAME -- php artisan migrate --force
-            fi
