@@ -1,58 +1,37 @@
-FROM php:8.4-fpm-alpine
+FROM php:8.3-fpm
 
-# Instalar dependências de sistema e Nginx
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    curl \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    zip \
-    unzip \
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
     git \
-    oniguruma-dev \
-    libzip-dev
+    unzip \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    curl \
+    nginx
 
-# Instalar extensões do PHP necessárias para o Laravel e MySQL/Postgres
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+RUN docker-php-ext-install pdo_mysql mbstring bcmath gd
 
 # Copiar Composer
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 ENV COMPOSER_MEMORY_LIMIT=-1
-
 WORKDIR /var/www/html
 
+# 1. Copia dependências e instala sem rodar scripts do Artisan
 COPY composer.json composer.lock ./
-
 RUN composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader --no-scripts
 
+# 2. Copia o código completo
 COPY . .
 
+# 3. Gera o autoloader final do Composer
 RUN composer dump-autoload --optimize
 
-# Configuração simples do Nginx apontando para a pasta /public do Laravel
-RUN echo 'server { \
-    listen 80; \
-    index index.php index.html; \
-    root /var/www/html/public; \
-    location / { \
-        try_files $uri $uri/ /index.php?$query_string; \
-    } \
-    location ~ \.php$ { \
-        fastcgi_pass 127.0.0.1:9000; \
-        fastcgi_index index.php; \
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; \
-        include fastcgi_params; \
-    } \
-}' > /etc/nginx/http.d/default.conf
-
-# Ajustar permissões da pasta storage e cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Permissões das pastas do Laravel
+RUN chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 80
 
-# Inicia o PHP-FPM em segundo plano e o Nginx na porta 80
-CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "php artisan config:cache && php artisan route:cache && php-fpm"]
