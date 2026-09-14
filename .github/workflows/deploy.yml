@@ -47,7 +47,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # 1. Atualiza a imagem do container nomeado "laravel"
-            sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:main --namespace=default || true
+            sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:master --namespace=default || true
             
             # 2. Reinicia o Deployment para baixar a nova imagem
             sudo k3s kubectl rollout restart deployment/tc-app-laravel
