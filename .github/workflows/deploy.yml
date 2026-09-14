@@ -46,5 +46,14 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo k3s kubectl set image deployment/tc-soat-app-deployment tc-soat-app-container=ghcr.io/${{ github.repository }}:main --namespace=default || true
-            sudo k3s kubectl rollout restart deployment/tc-soat-app-deployment || true
+            # 1. Garante que os manifestos estão aplicados no K3s
+            sudo k3s kubectl set image deployment/tc-app-laravel tc-app-laravel-container=ghcr.io/${{ github.repository }}:main --namespace=default || true
+            
+            # 2. Reinicia os pods para carregar a nova imagem Docker
+            sudo k3s kubectl rollout restart deployment/tc-app-laravel || true
+            
+            # 3. Executa as migrations do Laravel no RDS
+            POD_NAME=$(sudo k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+            if [ -n "$POD_NAME" ]; then
+              sudo k3s kubectl exec $POD_NAME -- php artisan migrate --force
+            fi
