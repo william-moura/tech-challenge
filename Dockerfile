@@ -21,11 +21,17 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Copiar Composer
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
+ENV COMPOSER_MEMORY_LIMIT=-1
+
 WORKDIR /var/www/html
+
+COPY composer.json composer.lock ./
+
+RUN composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader --no-scripts
 
 COPY . .
 
-RUN composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
+RUN composer dump-autoload --optimize
 
 # Configuração simples do Nginx apontando para a pasta /public do Laravel
 RUN echo 'server { \

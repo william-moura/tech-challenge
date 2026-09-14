@@ -191,12 +191,34 @@ class ServiceOrderRepositoryEloquent implements ServiceOrderRepositoryInterface
 
     public function findByApprovalToken(string $token): ?ServiceOrder
     {
-        $model = ServiceOrderModel::where('approval_token', $token)->first();
+        $model = ServiceOrderModel::where('id', $token)->first();
 
         if (!$model) {
             return null;
         }
 
         return $this->findById($model->id);
+    }
+
+    public function paginateByCustomer(int $page, int $perPage, string $customerId): array
+    {
+        return ServiceOrderModel::with(['customer', 'vehicle', 'services', 'services.service', 'items', 'items.item'])
+            ->whereNotIn('status', ['finalizada', 'entregue'])
+            ->where('customer_id', $customerId)
+            ->orderByRaw("
+                CASE status
+                    WHEN 'em_execucao'           THEN 1
+                    WHEN 'aguardando_aprovacao'  THEN 2
+                    WHEN 'em_diagnostico'        THEN 3
+                    WHEN 'recebida'              THEN 4
+                    ELSE 5
+                END
+            ")
+            ->orderBy('created_at', 'asc')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get()
+            ->toArray();
+
     }
 }

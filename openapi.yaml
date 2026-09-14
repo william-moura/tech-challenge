@@ -20,10 +20,14 @@ info:
   contact: {}
 
 servers:
-  - url: http://localhost:8080/api
-    description: Servidor local de desenvolvimento
+  - url: http://localhost:80
+    description: Servidor local de autenticação
+  - url: http://localhost:8000/api
+    description: Servidor local de desenvolvimentos
 
 tags:
+  - name: Autenticação (Clientes)
+    description: Operações de autenticação de clientes (CPF)
   - name: Autenticação
     description: Operações de registro, login, logout e gerenciamento de sessão JWT
   - name: Veículos
@@ -45,12 +49,53 @@ tags:
     description: Operações de gerenciamento de clientes (requer autenticação)
   - name: Notificações
     description: Consulta de notificações enviadas aos clientes (requer autenticação)
+  - name: Ordens de Serviço (Clientes)
+    description: Operações de gerenciamento de ordens de serviço (requer autenticação)
 
 paths:
 
   # ─── Autenticação ────────────────────────────────────────────────────────────
+  # 1. Rota Serverless de Autenticação de Clientes (Lambda via API Gateway)
+  /auth:
+    post:
+      tags:
+        - Autenticação (Clientes)
+      summary: Autenticação Serverless por CPF
+      description: Rota pública exposta no API Gateway que invoca a Lambda Auth para validar o CPF e emitir o JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cpf
+              properties:
+                cpf:
+                  type: string
+                  example: "12345678909"
+                  description: CPF do cliente cadastrado
+      responses:
+        '200':
+          description: Token JWT gerado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsIn..."
+                  token_type:
+                    type: string
+                    example: "Bearer"
+                  expires_in:
+                    type: integer
+                    example: 7200
+        '401':
+          description: CPF inválido ou cliente não encontrado
 
-  /auth/register:
+  /api/auth/register:
     post:
       tags:
         - Autenticação
@@ -91,7 +136,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErroValidacao'
 
-  /auth/login:
+  /api/auth/login:
     post:
       tags:
         - Autenticação
@@ -123,7 +168,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErroAutenticacao'
 
-  /auth/logout:
+  /api/auth/logout:
     post:
       tags:
         - Autenticação
@@ -141,7 +186,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /auth/refresh:
+  /api/auth/refresh:
     post:
       tags:
         - Autenticação
@@ -159,7 +204,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /auth/me:
+  /api/auth/me:
     get:
       tags:
         - Autenticação
@@ -179,7 +224,7 @@ paths:
 
   # ─── Veículos ────────────────────────────────────────────────────────────────
 
-  /vehicle:
+  /api/vehicle:
     get:
       tags:
         - Veículos
@@ -247,7 +292,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /vehicle/{id}:
+  /api/vehicle/{id}:
     get:
       tags:
         - Veículos
@@ -327,7 +372,7 @@ paths:
 
   # ─── Peças e Insumos ─────────────────────────────────────────────────────────
 
-  /item:
+  /api/item:
     get:
       tags:
         - Peças e Insumos
@@ -429,7 +474,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /item/{id}:
+  /api/item/{id}:
     get:
       tags:
         - Peças e Insumos
@@ -554,7 +599,7 @@ paths:
 
   # ─── Estoque ─────────────────────────────────────────────────────────────────
 
-  /item/{id}/stock/entry:
+  /api/item/{id}/stock/entry:
     post:
       tags:
         - Estoque
@@ -602,7 +647,7 @@ paths:
         '404':
           $ref: '#/components/responses/NaoEncontrado'
 
-  /item/{id}/stock/withdrawal:
+  /api/item/{id}/stock/withdrawal:
     post:
       tags:
         - Estoque
@@ -650,7 +695,7 @@ paths:
         '404':
           $ref: '#/components/responses/NaoEncontrado'
 
-  /item/{id}/stock/movements:
+  /api/item/{id}/stock/movements:
     get:
       tags:
         - Estoque
@@ -702,7 +747,7 @@ paths:
 
 # ─── Componentes ─────────────────────────────────────────────────────────────
 
-  /service:
+  /api/service:
     get:
       tags:
         - Serviços
@@ -798,7 +843,7 @@ paths:
         '422':
           $ref: '#/components/responses/ErroValidacaoLaravel'
 
-  /service/{id}:
+  /api/service/{id}:
     get:
       tags:
         - Serviços
@@ -905,7 +950,7 @@ paths:
 
   # ── Ordens de Serviço ────────────────────────────────────────────────────────
 
-  /service-order:
+  /api/service-order:
     get:
       tags:
         - Ordens de Serviço
@@ -1026,7 +1071,7 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/{id}:
+  /api/service-order/{id}:
     get:
       tags:
         - Ordens de Serviço
@@ -1168,7 +1213,7 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/{id}/status:
+  /api/service-order/{id}/status:
     patch:
       tags:
         - Ordens de Serviço
@@ -1210,10 +1255,10 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/approve/{token}:
+  /api/external/service-order/approve/{token}:
     get:
       tags:
-        - Ordens de Serviço
+        - Ordens de Serviço (Clientes)
       summary: Aprovar orçamento da ordem de serviço
       description: |-
         Aprova o orçamento vinculado ao token enviado por e-mail.
@@ -1255,10 +1300,10 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/reject/{token}:
+  /api/external/service-order/reject/{token}:
     get:
       tags:
-        - Ordens de Serviço
+        - Ordens de Serviço (Clientes)
       summary: Recusar orçamento da ordem de serviço
       description: |-
         Recusa o orçamento vinculado ao token enviado por e-mail.
@@ -1295,10 +1340,10 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/approval/{token}:
+  /api/external/service-order/approval/{token}:
     post:
       tags:
-        - Ordens de Serviço
+        - Ordens de Serviço (Clientes)
       summary: Processar decisão de aprovação do orçamento
       description: |-
         Endpoint alternativo para confirmar ou recusar o orçamento usando um corpo JSON com a decisão.
@@ -1346,7 +1391,38 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/{id}/services/{serviceId}:
+  /api/external/list-service-orders:
+    get:
+      tags:
+        - Ordens de Serviço (Clientes)
+      summary: Listar ordens de serviço
+      description: |-
+        Lista todas as ordens de serviço do sistema.
+        **Requer autenticação.**
+      operationId: service-order-list
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service_orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceOrder'
+                  message:
+                    type: string
+                    example: Lista de ordens de servico retornada com sucesso
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '422':
+          $ref: '#/components/responses/ErroNegocio'
+
+  /api/service-order/{id}/services/{serviceId}:
     delete:
       tags:
         - Ordens de Serviço
@@ -1381,7 +1457,7 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order/{id}/items/{itemId}:
+  /api/service-order/{id}/items/{itemId}:
     delete:
       tags:
         - Ordens de Serviço
@@ -1418,7 +1494,7 @@ paths:
 
   # ─── Serviços de Ordem ───────────────────────────────────────────────────────
 
-  /service-order-service/metrics/average-execution-time:
+  /api/service-order-service/metrics/average-execution-time:
     get:
       tags:
         - Serviços de Ordem
@@ -1448,7 +1524,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /service-order-service/{id}/start:
+  /api/service-order-service/{id}/start:
     patch:
       tags:
         - Serviços de Ordem
@@ -1480,7 +1556,7 @@ paths:
         '422':
           $ref: '#/components/responses/ErroNegocio'
 
-  /service-order-service/{id}/finish:
+  /api/service-order-service/{id}/finish:
     patch:
       tags:
         - Serviços de Ordem
@@ -1514,7 +1590,7 @@ paths:
 
   # ─── Clientes ────────────────────────────────────────────────────────────────
 
-  /customer:
+  /api/customer:
     get:
       tags:
         - Clientes
@@ -1591,7 +1667,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /customer/{id}:
+  /api/customer/{id}:
     get:
       tags:
         - Clientes
@@ -1675,7 +1751,7 @@ paths:
 
   # ─── Notificações ─────────────────────────────────────────────────────────────
 
-  /notification:
+  /api/notification:
     get:
       tags:
         - Notificações
@@ -1708,7 +1784,7 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
 
-  /notification/{id}:
+  /api/notification/{id}:
     get:
       tags:
         - Notificações

@@ -13,9 +13,15 @@ use App\Presentation\Http\Controllers\VehicleController;
 
 use App\Presentation\Http\Controllers\ServiceOrderApprovalController;
 
-Route::get('/service-order/approve/{token}', [ServiceOrderApprovalController::class, 'approve']);
-Route::get('/service-order/reject/{token}', [ServiceOrderApprovalController::class, 'reject']);
-Route::post('/service-order/approval/{token}', [ServiceOrderApprovalController::class, 'handle']);
+Route::group([
+    'middleware' => 'auth:customers',
+    'prefix' => 'external'
+], function () {
+    Route::get('/list-service-orders', [ServiceOrderController::class, 'listServiceOrdersByCustomer']);
+    Route::get('/approve/{token}', [ServiceOrderApprovalController::class, 'approve']);
+    Route::get('/reject/{token}', [ServiceOrderApprovalController::class, 'reject']);
+    Route::post('/approval/{token}', [ServiceOrderApprovalController::class, 'handle']);
+});
 
 Route::group([
     'middleware' => 'auth:api',
@@ -66,7 +72,7 @@ Route::group([
 
 Route::group([
     'middleware' => 'auth:api',
-    'prefix' => 'service-order-service'
+    'prefix' => 'service-order-service'                                       
 ], function () {
     Route::get('/metrics/average-execution-time', [ServiceOrderServiceController::class, 'averageExecutionTime']);
     Route::patch('/{id}/start', [ServiceOrderServiceController::class, 'start']);

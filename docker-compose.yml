@@ -77,3 +77,50 @@ services:
       - auth-lambda
     networks:
       - techchallenge-net
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    ports:
+      - 8082:8080
+    environment:
+      SWAGGER_JSON: /app/openapi.yaml
+    volumes:
+      - ./openapi.yaml:/app/openapi.yaml
+    networks:
+      - techchallenge-net
+
+  sonar:
+    image: sonarqube:latest
+    ports:
+      - 9000:9000
+    networks:
+      - techchallenge-net
+
+  sonar-scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    environment:
+      SONAR_HOST_URL: http://sonar:9000
+      SONAR_TOKEN: ${SONAR_TOKEN}
+    depends_on:
+      - sonar
+    networks:
+      - techchallenge-net
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    profiles: [zap]
+    depends_on:
+      app-php:
+        condition: service_healthy
+    volumes:
+      - ./openapi.yaml:/zap/wrk/openapi.yaml:ro
+      - ./zap/reports:/zap/wrk/reports
+      - ./zap/entrypoint.sh:/zap/wrk/entrypoint.sh:ro
+    networks:
+      - techchallenge-net
+    environment:
+      - ZAP_EMAIL
+      - ZAP_PASSWORD
+    entrypoint: ["bash", "/zap/wrk/entrypoint.sh"]
