@@ -17,42 +17,42 @@ flowchart TD
 
     subgraph AWS_Cloud ["☁️ AWS Academy Learner Lab (us-east-1)"]
         subgraph Gateway_Layer ["🚪 Camada de Entrada & Autenticação"]
-            APIGW["🌐 AWS API Gateway v2 (HTTP API)\n[tc-soat-k8s-infra]"]:::aws
-            AuthLambda["⚡ AWS Lambda\n(tc-soat-auth-lambda)"]:::aws
+            APIGW["🌐 AWS API Gateway v2 (HTTP API)"]:::aws
+            AuthLambda["⚡ AWS Lambda (tc-soat-auth-lambda)"]:::aws
         end
 
-        subgraph Compute_Layer ["🖥️ Instância EC2 (t2.micro / Amazon Linux 2023)"]
+        subgraph Compute_Layer ["🖥️ Instância EC2 (Amazon Linux 2023)"]
             subgraph K3s_Cluster ["☸️ Cluster K3s (Kubernetes)"]
-                Ingress["🌐 K3s Ingress / Traefik\n(Porta 80)"]:::k8s
+                Ingress["🌐 K3s Ingress / Traefik"]:::k8s
                 subgraph App_Pod ["📦 Pod: tc-app-laravel"]
-                    Laravel["🍕 Container Laravel\n(PHP 8.2 / Apache)"]:::k8s
+                    Laravel["🍕 Container Laravel (PHP 8.2 / Apache)"]:::k8s
                 end
-                ConfigSecret["🔑 ConfigMap & Secret\n(Env Variables)"]:::k8s
+                ConfigSecret["🔑 ConfigMap & Secret"]:::k8s
             end
         end
 
         subgraph Database_Layer ["🗄️ Camada de Persistência"]
-            RDS["🐬 AWS RDS MySQL 8.0\n(db.t3.micro)\n[tc-soat-db-infra]"]:::aws
+            RDS["🐬 AWS RDS MySQL 8.0 (db.t3.micro)"]:::aws
         end
     end
 
     subgraph GitHub_Ecosystem ["🐙 GitHub Ecosystem"]
-        GHA_Infra["⚙️ GitHub Actions\n(tc-soat-k8s-infra)"]:::cicd
-        GHA_DB["⚙️ GitHub Actions\n(tc-soat-db-infra)"]:::cicd
-        GHA_App["⚙️ GitHub Actions\n(tech-challenge)"]:::cicd
-        GHCR["📦 GitHub Container Registry\n(ghcr.io)"]:::cicd
+        GHA_Infra["⚙️ GitHub Actions (tc-soat-k8s-infra)"]:::cicd
+        GHA_DB["⚙️ GitHub Actions (tc-soat-db-infra)"]:::cicd
+        GHA_App["⚙️ GitHub Actions (tech-challenge)"]:::cicd
+        GHCR["📦 GitHub Container Registry"]:::cicd
     end
 
     Client -->|1. Requisição HTTP/HTTPS| APIGW
-    APIGW -->|2. POST /auth\nValidar Token| AuthLambda
+    APIGW -->|2. POST /auth - Validar Token| AuthLambda
     APIGW -->|3. Roteamento de Tráfego| Ingress
     Ingress -->|4. Encaminha para o Pod| Laravel
 
     ConfigSecret -.->|Injeta Variáveis do RDS| Laravel
-    Laravel -->|5. Consultas & Migrations\n(Porta 3306)| RDS
+    Laravel -->|5. Consultas e Migrations - Porta 3306| RDS
 
-    GHA_Infra ==>|Terraform Apply & Setup K3s| AWS_Cloud
+    GHA_Infra ==>|Terraform Apply e Setup K3s| AWS_Cloud
     GHA_DB ==>|Terraform Apply| RDS
-    GHA_App ==>|Build & Push Image| GHCR
-    GHA_App ==>|SSH Deploy & Rollout| K3s_Cluster
+    GHA_App ==>|Build e Push Image| GHCR
+    GHA_App ==>|SSH Deploy e Rollout| K3s_Cluster
     GHCR -.->|Pull Imagem Container| App_Pod
