@@ -33,7 +33,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copiar configurações do Nginx e Supervisor
+# Garantir que o diretório de logs do supervisor existe
+RUN mkdir -p /var/log/supervisor
+
+# Copiar configurações
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

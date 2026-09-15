@@ -77,3 +77,14 @@ jobs:
               echo "=== Executando artisan migrate no namespace oficina-mecanica... ==="
               k3s kubectl exec $POD_NAME -n oficina-mecanica -c laravel -- php artisan migrate --force
             fi
+            # 6. Executar Migrations do Laravel garantindo Pod em status Running - novo passo
+            echo "=== Executando artisan migrate no namespace oficina-mecanica... ==="
+            POD_NAME=$(k3s kubectl get pods -n oficina-mecanica -l app=tc-app-laravel --field-selector=status.phase=Running -o jsonpath="{.items[0].metadata.name}")
+
+            if [ -n "$POD_NAME" ]; then
+              echo "Conectando no Pod: $POD_NAME"
+              k3s kubectl exec $POD_NAME -n oficina-mecanica -c laravel -- php artisan migrate --force
+            else
+              echo "Nenhum Pod em status Running foi encontrado."
+              exit 1
+            fi
