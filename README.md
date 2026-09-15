@@ -57,6 +57,13 @@ flowchart TD
     GHCR -.->|Pull Imagem Container| App_Pod
 ```
 
+---
+
+## 📚 Documentação de Arquitetura
+
+Para acessar as RFCs, ADRs e o Diagrama ER do Banco de Dados[cite: 1]:
+👉 [Acessar Pasta /docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+
 ## 🛠️ Tecnologias Utilizadas
 
 * **Framework Backend:** PHP 8.2 / Laravel 10
