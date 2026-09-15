@@ -3,7 +3,6 @@
 A aplicação principal do ecossistema **Tech Challenge**, responsável pelo gerenciamento de pedidos, produtos e clientes. O projeto roda sob uma arquitetura de containers orquestrada por **Kubernetes (K3s)** em uma instância AWS EC2, conectada a um banco **AWS RDS MySQL** e integrada a uma função **AWS Lambda** para autenticação.
 
 ---
-
 ## 📐 Arquitetura Geral da Solução
 
 ```mermaid
@@ -56,8 +55,7 @@ flowchart TD
     GHA_App ==>|Build e Push Image| GHCR
     GHA_App ==>|SSH Deploy e Rollout| K3s_Cluster
     GHCR -.->|Pull Imagem Container| App_Pod
-
----
+```
 
 ## 🛠️ Tecnologias Utilizadas
 
