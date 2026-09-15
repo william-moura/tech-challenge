@@ -1,7 +1,7 @@
 name: Deploy Laravel App to K3s
 
 on:
-  push:
+  pull_request:
     branches: [ master ]
 
 # ADICIONE ESTE BLOCO DE PERMISSÕES
@@ -39,36 +39,54 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Deploy & Rollout no K3s via SSH
+      - name: SSH Deploy and Rollout on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_PUBLIC_IP }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 10m
+          command_timeout: 10m
           script: |
+            set -e
+
             # 1. Garante a instalação do K3s se não existir
             if ! command -v k3s &> /dev/null; then
               echo "=== Instalando K3s... ==="
               curl -sfL https://get.k3s.io | sh -
-              sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+              sudo systemctl enable --now k3s
+              sleep 15
+            fi
+
+            # 2. Garante que o serviço do K3s esteja ATIVO
+            echo "=== Verificando serviço systemctl do K3s... ==="
+            if ! sudo systemctl is-active --quiet k3s; then
+              echo "WARNING: Serviço K3s inativo! Tentando reiniciar..."
+              sudo systemctl restart k3s
               sleep 10
             fi
 
-            # Set KUBECONFIG explicitamente para a sessão
+            # Configura permissão do kubeconfig
+            sudo chmod 644 /etc/rancher/k3s/k3s.yaml
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-            # 2. Validação direta do cluster em 5 segundos
+            # 3. Teste do kubectl com TIMEOUT de 15 segundos para evitar travamento infinito
             echo "=== Testando conexão com K3s... ==="
-            sudo /usr/local/bin/k3s kubectl get nodes
+            if ! sudo /usr/local/bin/k3s kubectl get nodes --request-timeout='15s'; then
+              echo "ERROR: API Server do K3s não respondeu em 15s!"
+              echo "--- Últimos logs do serviço K3s ---"
+              sudo journalctl -u k3s -n 50 --no-pager
+              exit 1
+            fi
 
-            # 3. Criar a Secret do GHCR
+            # 4. Criar Secret do GHCR
             sudo /usr/local/bin/k3s kubectl create secret docker-registry ghcr-secret \
               --docker-server=ghcr.io \
               --docker-username=${{ github.actor }} \
               --docker-password=${{ secrets.GITHUB_TOKEN }} \
               --namespace=default --dry-run=client -o yaml | sudo /usr/local/bin/k3s kubectl apply -f -
 
-            # 4. Aplicar manifestos se necessário
+            # 5. Aplicar manifestos se necessário
             if ! sudo /usr/local/bin/k3s kubectl get deployment/tc-app-laravel &> /dev/null; then
               echo "=== Aplicando manifestos base da infraestrutura... ==="
               sudo dnf install -y git
@@ -79,14 +97,14 @@ jobs:
               sleep 5
             fi
 
-            # 5. Rollout e Atualização da Imagem
+            # 6. Atualização da Imagem e Rollout
             sudo /usr/local/bin/k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/${{ github.repository_owner }}/tech-challenge:master --namespace=default
             sudo /usr/local/bin/k3s kubectl rollout restart deployment/tc-app-laravel
 
-            # 6. Status do Rollout (Timeout curto de 60s)
+            # 7. Aguardar Rollout
             sudo /usr/local/bin/k3s kubectl rollout status deployment/tc-app-laravel --timeout=60s
 
-            # 7. Executar Migrations
+            # 8. Executar Migrations
             POD_NAME=$(sudo /usr/local/bin/k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}")
             if [ -n "$POD_NAME" ]; then
               echo "=== Executando artisan migrate... ==="
