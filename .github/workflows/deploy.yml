@@ -45,18 +45,33 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 5m
           script: |
-            # 1. Atualiza a imagem do container nomeado "laravel"
-            sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:master --namespace=default || true
-            
-            # 2. Reinicia o Deployment para baixar a nova imagem
+            # 1. Cria a Secret de autenticação para o GHCR (caso o repositório seja privado)
+            sudo k3s kubectl create secret docker-registry ghcr-secret \
+              --docker-server=ghcr.io \
+              --docker-username=william-moura \
+              --docker-password=${{ secrets.GITHUB_TOKEN }} \
+              --namespace=default --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+
+            # 2. Atualiza a imagem e reinicia
+            sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:master --namespace=default
             sudo k3s kubectl rollout restart deployment/tc-app-laravel
-            
-            # 3. Aguarda o novo Pod ficar pronto antes de rodar as migrations (previne erros)
-            sudo k3s kubectl rollout status deployment/tc-app-laravel --timeout=60s
-            
-            # 4. Executa as migrations dentro do container "laravel"
-            POD_NAME=$(sudo k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}" 2>/dev/null)
+
+            # 3. Aguarda o Rollout com timeout de 45 segundos
+            if ! sudo k3s kubectl rollout status deployment/tc-app-laravel --timeout=45s; then
+              echo "=== DEPLOYMENT FALHOU OU DEMOROU DEMAIS ==="
+              echo "--- Status dos Pods ---"
+              sudo k3s kubectl get pods
+              echo "--- Descreva o Pod ---"
+              sudo k3s kubectl describe pods -l app=tc-app-laravel
+              echo "--- Logs do Container ---"
+              sudo k3s kubectl logs -l app=tc-app-laravel --tail=50
+              exit 1
+            fi
+
+            # 4. Executa as Migrations se o Pod estiver saudável
+            POD_NAME=$(sudo k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}")
             if [ -n "$POD_NAME" ]; then
               sudo k3s kubectl exec $POD_NAME -c laravel -- php artisan migrate --force
             fi
