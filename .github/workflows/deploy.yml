@@ -45,59 +45,50 @@ jobs:
           host: ${{ secrets.EC2_PUBLIC_IP }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 10m
           script: |
-            # 1. Garante a instalação do K3s se necessário
+            # 1. Garante a instalação do K3s se não existir
             if ! command -v k3s &> /dev/null; then
               echo "=== Instalando K3s... ==="
               curl -sfL https://get.k3s.io | sh -
-              sleep 20
-            fi
-
-            # 2. Aguarda até que o server OpenAPI do K3s responda HTTP 200/401 na porta 6443
-            echo "=== Aguardando API do Kubernetes estar totalmente pronta... ==="
-            until sudo k3s kubectl get --raw='/readyz' &> /dev/null; do
-              echo "Aguardando serviço readyz do K3s..."
-              sleep 5
-            done
-
-            # 3. Cria a Secret do Docker Registry (GHCR) ignorando validação OpenAPI temporária
-            sudo k3s kubectl create secret docker-registry ghcr-secret \
-              --docker-server=ghcr.io \
-              --docker-username=william-moura \
-              --docker-password=${{ secrets.GITHUB_TOKEN }} \
-              --namespace=default --dry-run=client -o yaml | sudo k3s kubectl apply --validate=false -f -
-
-            # 4. Aplica os manifestos da infraestrutura se o deployment ainda não existir
-            if ! sudo k3s kubectl get deployment/tc-app-laravel &> /dev/null; then
-              echo "=== Aplicando manifestos base da infraestrutura... ==="
-              sudo dnf install -y git
-              rm -rf ~/repo-infra && mkdir -p ~/repo-infra
-              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/william-moura/tc-soat-k8s-infra.git ~/repo-infra
-              sudo k3s kubectl apply --validate=false -f ~/repo-infra/k8s-manifests/
-              rm -rf ~/repo-infra
+              sudo chmod 644 /etc/rancher/k3s/k3s.yaml
               sleep 10
             fi
 
-            # 5. Atualiza a imagem para a versão mais recente e reinicia
-            sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:master --namespace=default
-            sudo k3s kubectl rollout restart deployment/tc-app-laravel
+            # Set KUBECONFIG explicitamente para a sessão
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-            # 6. Monitora o Rollout do Pod
-            if ! sudo k3s kubectl rollout status deployment/tc-app-laravel --timeout=90s; then
-              echo "=== DEPLOYMENT FALHOU OU DEMOROU DEMAIS ==="
-              echo "--- Status dos Pods ---"
-              sudo k3s kubectl get pods
-              echo "--- Describe do Pod ---"
-              sudo k3s kubectl describe pods -l app=tc-app-laravel
-              echo "--- Logs do Container ---"
-              sudo k3s kubectl logs -l app=tc-app-laravel --tail=50
-              exit 1
+            # 2. Validação direta do cluster em 5 segundos
+            echo "=== Testando conexão com K3s... ==="
+            sudo /usr/local/bin/k3s kubectl get nodes
+
+            # 3. Criar a Secret do GHCR
+            sudo /usr/local/bin/k3s kubectl create secret docker-registry ghcr-secret \
+              --docker-server=ghcr.io \
+              --docker-username=${{ github.actor }} \
+              --docker-password=${{ secrets.GITHUB_TOKEN }} \
+              --namespace=default --dry-run=client -o yaml | sudo /usr/local/bin/k3s kubectl apply -f -
+
+            # 4. Aplicar manifestos se necessário
+            if ! sudo /usr/local/bin/k3s kubectl get deployment/tc-app-laravel &> /dev/null; then
+              echo "=== Aplicando manifestos base da infraestrutura... ==="
+              sudo dnf install -y git
+              rm -rf ~/repo-infra && mkdir -p ~/repo-infra
+              git clone https://github.com/william-moura/tc-soat-k8s-infra.git ~/repo-infra
+              sudo /usr/local/bin/k3s kubectl apply -f ~/repo-infra/k8s-manifests/
+              rm -rf ~/repo-infra
+              sleep 5
             fi
 
-            # 7. Executa as Migrations no Laravel
-            POD_NAME=$(sudo k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}")
+            # 5. Rollout e Atualização da Imagem
+            sudo /usr/local/bin/k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/${{ github.repository_owner }}/tech-challenge:master --namespace=default
+            sudo /usr/local/bin/k3s kubectl rollout restart deployment/tc-app-laravel
+
+            # 6. Status do Rollout (Timeout curto de 60s)
+            sudo /usr/local/bin/k3s kubectl rollout status deployment/tc-app-laravel --timeout=60s
+
+            # 7. Executar Migrations
+            POD_NAME=$(sudo /usr/local/bin/k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}")
             if [ -n "$POD_NAME" ]; then
               echo "=== Executando artisan migrate... ==="
-              sudo k3s kubectl exec $POD_NAME -c laravel -- php artisan migrate --force
+              sudo /usr/local/bin/k3s kubectl exec $POD_NAME -c laravel -- php artisan migrate --force
             fi
