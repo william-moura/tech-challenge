@@ -44,8 +44,7 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 5m
+          key: ${{ secrets.EC2_SSH_KEY }}          
           command_timeout: 10m
           script: |
             # 1. Garante a instalação do K3s se necessário
