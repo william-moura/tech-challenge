@@ -111,3 +111,8 @@ Route::group([
     Route::get('/', [NotificationController::class, 'list']);
     Route::get('/{id}', [NotificationController::class, 'show']);
 });
+Route::get('/health', function () {
+    return response()->json([
+        'message' => 'API is running'
+    ]);
+});
