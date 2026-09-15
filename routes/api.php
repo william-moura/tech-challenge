@@ -34,8 +34,7 @@ Route::group([
     Route::delete('/{id}', [CustomerController::class, 'destroy']);
 });
 
-Route::group([
-    'middleware' => 'api',
+Route::group([    
     'prefix' => 'auth'
 ], function () {
     Route::post('register', [AuthController::class, 'register']);
