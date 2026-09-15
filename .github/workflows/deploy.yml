@@ -47,31 +47,50 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 5m
           script: |
-            # 1. Cria a Secret de autenticação para o GHCR (caso o repositório seja privado)
+            # 1. Garante que o K3s está instalado no Amazon Linux 2023
+            if ! command -v k3s &> /dev/null; then
+              echo "=== K3s não encontrado. Instalando K3s... ==="
+              curl -sfL https://get.k3s.io | sh -
+              sleep 15
+            fi
+
+            # 2. Garante o arquivo de credencial para o Registry (GHCR)
             sudo k3s kubectl create secret docker-registry ghcr-secret \
               --docker-server=ghcr.io \
               --docker-username=william-moura \
               --docker-password=${{ secrets.GITHUB_TOKEN }} \
               --namespace=default --dry-run=client -o yaml | sudo k3s kubectl apply -f -
 
-            # 2. Atualiza a imagem e reinicia
+            # 3. Se o deployment ainda não existe na EC2, baixa e aplica os manifestos da infra
+            if ! sudo k3s kubectl get deployment/tc-app-laravel &> /dev/null; then
+              echo "=== Deployment não encontrado. Aplicando manifestos iniciais... ==="
+              sudo dnf install -y git
+              rm -rf ~/repo-infra && mkdir -p ~/repo-infra
+              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/william-moura/tc-soat-k8s-infra.git ~/repo-infra
+              sudo k3s kubectl apply -f ~/repo-infra/k8s-manifests/
+              rm -rf ~/repo-infra
+              sleep 10
+            fi
+
+            # 4. Atualiza a imagem e força o rollout do Laravel
             sudo k3s kubectl set image deployment/tc-app-laravel laravel=ghcr.io/william-moura/tech-challenge:master --namespace=default
             sudo k3s kubectl rollout restart deployment/tc-app-laravel
 
-            # 3. Aguarda o Rollout com timeout de 45 segundos
-            if ! sudo k3s kubectl rollout status deployment/tc-app-laravel --timeout=45s; then
+            # 5. Aguarda o Rollout
+            if ! sudo k3s kubectl rollout status deployment/tc-app-laravel --timeout=60s; then
               echo "=== DEPLOYMENT FALHOU OU DEMOROU DEMAIS ==="
               echo "--- Status dos Pods ---"
               sudo k3s kubectl get pods
-              echo "--- Descreva o Pod ---"
+              echo "--- Describe Pod ---"
               sudo k3s kubectl describe pods -l app=tc-app-laravel
               echo "--- Logs do Container ---"
               sudo k3s kubectl logs -l app=tc-app-laravel --tail=50
               exit 1
             fi
 
-            # 4. Executa as Migrations se o Pod estiver saudável
+            # 6. Executa as Migrations no Pod ativo
             POD_NAME=$(sudo k3s kubectl get pods -l app=tc-app-laravel -o jsonpath="{.items[0].metadata.name}")
             if [ -n "$POD_NAME" ]; then
+              echo "=== Executando artisan migrate... ==="
               sudo k3s kubectl exec $POD_NAME -c laravel -- php artisan migrate --force
             fi
