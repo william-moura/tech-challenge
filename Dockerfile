@@ -26,12 +26,19 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Configurar diretório de trabalho
 WORKDIR /var/www/html
 
-# Adicione esta linha no seu Dockerfile:
-COPY openapi.yaml /var/www/html/public/openapi.yml
+
+# Copiar os arquivos estáticos do Swagger UI para a pasta pública docs
+COPY --from=swagger /usr/share/nginx/html /var/www/html/public/docs
+
 
 # Copiar arquivos do projeto
 COPY . .
 
+# Adicione esta linha no seu Dockerfile:
+COPY openapi.yaml /var/www/html/public/openapi.yml
+
+# Alterar a URL padrão do Swagger Petstore para a nossa especificação OpenAPI local
+RUN sed -i 's|https://petstore.swagger.io/v2/swagger.json|/openapi.yml|g' /var/www/html/public/docs/swagger-initializer.js
 # Instalar dependências do Composer sem pacotes de dev
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
