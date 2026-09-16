@@ -1,6 +1,5 @@
 # Stage 1: Baixar os arquivos estáticos do Swagger UI
 FROM swaggerapi/swagger-ui:latest AS swagger
-WORKDIR /usr/share/nginx/html
 
 # Base PHP FPM
 FROM php:8.4-fpm-alpine
