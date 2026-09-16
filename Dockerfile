@@ -24,7 +24,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # Adicione esta linha no seu Dockerfile:
-COPY openapi.yml /var/www/html/public/openapi.yml
+COPY openapi.yaml /var/www/html/public/openapi.yml
 
 # Copiar arquivos do projeto
 COPY . .
